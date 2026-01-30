@@ -8,6 +8,8 @@ import { getOutputFileName } from '@/lib/outputFileName';
 import * as XLSX from 'xlsx';
 import type { ApiResponse } from '@/types';
 
+export const maxDuration = 300;
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();

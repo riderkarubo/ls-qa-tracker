@@ -70,24 +70,39 @@ export async function integrateData(
     outputQuestions.push(outputQ);
   }
 
-  // 2. LLMマッチング
+  // 2. LLMマッチング（バッチ並列化でタイムアウト対策）
+  const LLM_BATCH_SIZE = 5; // 同時に呼ぶ API 数。レート制限とタイムアウトのバランス
   if (qaItems.length > 0) {
     const totalQuestions = outputQuestions.length;
-    for (let i = 0; i < outputQuestions.length; i++) {
-      const outputQ = outputQuestions[i];
-      
-      // 進捗を更新
-      if (onProgress) {
-        onProgress(i + 1, totalQuestions);
-      }
-      
-      try {
-        const matchedQA = await matchWithLLM(
-          outputQ.question,
-          outputQ.time,
-          qaItems
-        );
-        
+    let apiKeyInvalid = false;
+
+    for (let start = 0; start < totalQuestions && !apiKeyInvalid; start += LLM_BATCH_SIZE) {
+      const end = Math.min(start + LLM_BATCH_SIZE, totalQuestions);
+      const chunkIndices = Array.from({ length: end - start }, (_, j) => start + j);
+
+      const results = await Promise.allSettled(
+        chunkIndices.map((i) => {
+          const outputQ = outputQuestions[i];
+          return matchWithLLM(outputQ.question, outputQ.time, qaItems);
+        })
+      );
+
+      for (let j = 0; j < results.length; j++) {
+        const result = results[j];
+        const i = chunkIndices[j];
+        const outputQ = outputQuestions[i];
+
+        if (result.status === 'rejected') {
+          const err = result.reason;
+          if (err instanceof Error && err.message === 'API_KEY_INVALID') {
+            apiKeyInvalid = true;
+            break;
+          }
+          console.warn(`LLMマッチングエラー (${outputQ.question}):`, err);
+          continue;
+        }
+
+        const matchedQA = result.value;
         if (matchedQA) {
           outputQ.archiveJudgment = 'TRUE';
           judgmentReasons.push({
@@ -102,14 +117,10 @@ export async function integrateData(
             },
           });
         }
-      } catch (error) {
-        // LLMマッチングが失敗した場合はスキップ（エラーログはllmMatcher.tsで出力済み）
-        // APIキーが無効な場合などはエラーをスローするが、処理は継続
-        if (error instanceof Error && error.message === 'API_KEY_INVALID') {
-          // APIキーが無効な場合は、以降のLLMマッチングをスキップ
-          break;
-        }
-        console.warn(`LLMマッチングエラー (${outputQ.question}):`, error);
+      }
+
+      if (onProgress) {
+        onProgress(end, totalQuestions);
       }
     }
   }

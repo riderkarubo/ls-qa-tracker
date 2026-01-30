@@ -8,6 +8,9 @@ import { getOutputFileName } from '@/lib/outputFileName';
 import * as XLSX from 'xlsx';
 import type { OutputQuestion, SummaryStats } from '@/types';
 
+/** Vercel Pro: 最大5分。Hobby は 10 秒上限のため要 Pro 以上 */
+export const maxDuration = 300;
+
 const encoder = new TextEncoder();
 
 function formatTime(seconds: number): string {
