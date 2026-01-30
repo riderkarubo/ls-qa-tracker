@@ -53,7 +53,8 @@ export async function POST(request: NextRequest) {
     // TODO: 新しいアーカイブ判定ロジックをここに実装
     // qaResult.qaItems を使用してアーカイブ判定を行う
 
-    const outputQuestions = integrateData(inputQuestions);
+    const integrated = await integrateData(inputQuestions, qaResult.qaItems);
+    const outputQuestions = integrated.outputQuestions;
 
     const workbook = generateExcel(outputQuestions);
     const excelBuffer = XLSX.write(workbook, { 
