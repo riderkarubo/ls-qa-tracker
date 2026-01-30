@@ -61,7 +61,7 @@ export function ProcessingStatus({ status }: ProcessingStatusProps) {
         <h3 className="text-xl font-bold mb-2 text-gray-800">
           {getStatusMessage()}
         </h3>
-        {status.stage !== 'idle' && status.stage !== 'error' && (
+        {status.stage !== 'error' && status.stage !== 'complete' && (
           <>
             <div className="w-full bg-gray-200 rounded-full h-2.5 mb-2">
               <div
