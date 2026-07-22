@@ -4,9 +4,6 @@ export interface InputQuestion {
   user: string;
   question: string;
   answerMethod: string;
-  commentNote: string;
-  answer: string;
-  memo: string;
 }
 
 export interface QAItem {
@@ -24,9 +21,6 @@ export interface OutputQuestion {
   time: string;
   user: string;
   question: string;
-  commentNote: string;
-  answer: string;
-  memo: string;
   reason?: JudgmentReason;
 }
 

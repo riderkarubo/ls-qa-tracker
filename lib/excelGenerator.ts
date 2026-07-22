@@ -26,9 +26,6 @@ export function generateExcel(outputQuestions: OutputQuestion[]): XLSX.WorkBook 
     'Time',
     'User',
     '質問',
-    'コメント補足',
-    '回答',
-    'メモ',
   ];
 
   const dataRows = outputQuestions.map(q => [
@@ -39,9 +36,6 @@ export function generateExcel(outputQuestions: OutputQuestion[]): XLSX.WorkBook 
     q.time,
     q.user,
     q.question,
-    q.commentNote,
-    q.answer,
-    q.memo,
   ]);
 
   const allRows = [

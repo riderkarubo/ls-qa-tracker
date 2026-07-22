@@ -62,9 +62,6 @@ export async function integrateData(
       time: inputQ.time,
       user: inputQ.user,
       question: inputQ.question,
-      commentNote: inputQ.commentNote,
-      answer: inputQ.answer,
-      memo: inputQ.memo,
     };
 
     outputQuestions.push(outputQ);
