@@ -228,7 +228,7 @@ export default function Home() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <FileUpload
-            label="入力見本（CSV/Excel）"
+            label="コメントピックアップシート（CSV/Excel）"
             accept=".csv,.xlsx,.xls"
             category="primary"
             onFileSelect={setInputFile}

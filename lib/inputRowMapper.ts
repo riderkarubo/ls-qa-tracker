@@ -30,7 +30,7 @@ interface HeaderMatch {
   columns: HeaderIndexMap;
 }
 
-// 入力見本ファイルはタイトル行の有無・列順が更新のたびに変わるため、
+// コメントピックアップシートはタイトル行の有無・列順が更新のたびに変わるため、
 // 位置決め打ちではなくヘッダー名から列を都度検出する。
 function findHeaderRow(rows: string[][], maxScanRows = 5): HeaderMatch | null {
   const scanLimit = Math.min(maxScanRows, rows.length);
