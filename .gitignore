@@ -36,3 +36,4 @@ next-env.d.ts
 
 # Claude Code session state (public repo: avoid leaking local paths/session metadata)
 /.omc/state/
+/.claude/
