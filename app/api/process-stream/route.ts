@@ -6,7 +6,7 @@ import { integrateData } from '@/lib/dataIntegrator';
 import { generateExcel } from '@/lib/excelGenerator';
 import { getOutputFileName } from '@/lib/outputFileName';
 import * as XLSX from 'xlsx';
-import type { OutputQuestion, SummaryStats } from '@/types';
+import type { OutputQuestion, QAItem, SummaryStats } from '@/types';
 
 /** Vercel Pro: 最大5分。Hobby は 10 秒上限のため要 Pro 以上 */
 export const maxDuration = 300;
@@ -112,12 +112,14 @@ export async function POST(request: NextRequest) {
 
       try {
         const formData = await request.formData();
-        const inputFile = formData.get('inputFile') as File;
-        const qaTextFile = formData.get('qaTextFile') as File;
+        const inputFile = formData.get('inputFile') as File | null;
+        // QA抽出テキストは任意。未指定ならアーカイブ判定（LLMマッチング）を行わず、
+        // 配信現場判定（回答済チェック）のみで集計する。
+        const qaTextFile = formData.get('qaTextFile') as File | null;
 
-        if (!inputFile || !qaTextFile) {
-          sendProgress(0, 'ファイルが選択されていません', 'error');
-          errorMessage = 'ファイルが選択されていません';
+        if (!inputFile) {
+          sendProgress(0, 'コメントピックアップシートが選択されていません', 'error');
+          errorMessage = 'コメントピックアップシートが選択されていません';
           controller.close();
           return;
         }
@@ -146,16 +148,23 @@ export async function POST(request: NextRequest) {
           return;
         }
 
-        sendProgress(10, 'QA抽出テキストを解析しています...', 'parsing');
+        let qaItems: QAItem[] = [];
 
-        const qaText = await qaTextFile.text();
-        const qaResult = parseQAText(qaText);
+        if (qaTextFile) {
+          sendProgress(10, 'QA抽出テキストを解析しています...', 'parsing');
 
-        if (qaResult.errors.length > 0) {
-          inputErrors.push(...qaResult.errors);
+          const qaText = await qaTextFile.text();
+          const qaResult = parseQAText(qaText);
+          qaItems = qaResult.qaItems;
+
+          if (qaResult.errors.length > 0) {
+            inputErrors.push(...qaResult.errors);
+          }
+
+          sendProgress(30, 'LLMマッチングを実行しています...', 'integrating');
+        } else {
+          sendProgress(30, '配信現場判定のみで集計しています（QA抽出テキストなし）', 'integrating');
         }
-
-        sendProgress(30, 'LLMマッチングを実行しています...', 'integrating');
 
         if (checkAborted()) {
           return;
@@ -163,7 +172,7 @@ export async function POST(request: NextRequest) {
 
         const integrateResult = await integrateData(
           inputQuestions,
-          qaResult.qaItems,
+          qaItems,
           (current, total) => {
             // 進捗を更新（30%から80%の間で段階的に更新）
             const progress = 30 + Math.floor((current / total) * 50);
@@ -192,7 +201,7 @@ export async function POST(request: NextRequest) {
         
         // 統計情報を計算
         const summaryStats = calculateSummaryStats(outputQuestions);
-        const outputFilename = getOutputFileName(qaTextFile.name);
+        const outputFilename = getOutputFileName(qaTextFile?.name);
 
         const finalData = JSON.stringify({
           progress: 100,

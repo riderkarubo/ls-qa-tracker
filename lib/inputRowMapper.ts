@@ -20,9 +20,69 @@ function normalizeHeaderCell(cell: unknown): string {
   return (cell ?? '').toString().replace(/\s+/g, '');
 }
 
-function cellValue(row: string[], index: number): string {
+function cellValue(row: unknown[], index: number): string {
   const raw = row[index];
   return raw === undefined || raw === null ? '' : raw.toString().trim();
+}
+
+// Excelの「回答済」列はチェックボックスのため、xlsxパース時に boolean で入ってくる。
+// CSV経由だと文字列 "TRUE" になるため、両方を 'TRUE' / '' に正規化する。
+function answeredValue(row: unknown[], index: number): string {
+  const raw = row[index];
+
+  if (typeof raw === 'boolean') {
+    return raw ? 'TRUE' : '';
+  }
+  if (typeof raw === 'number') {
+    return raw !== 0 ? 'TRUE' : '';
+  }
+
+  const text = cellValue(row, index);
+  return text.toUpperCase() === 'TRUE' || text === '1' ? 'TRUE' : '';
+}
+
+function secondsToTimeString(totalSeconds: number): string {
+  const normalized = ((Math.round(totalSeconds) % 86400) + 86400) % 86400;
+  const hours = Math.floor(normalized / 3600);
+  const minutes = Math.floor((normalized % 3600) / 60);
+  const seconds = normalized % 60;
+  return [hours, minutes, seconds]
+    .map((part) => String(part).padStart(2, '0'))
+    .join(':');
+}
+
+// ExcelのTime列は「1日=1」のシリアル値（例: 0.7888657 = 18:55:58）で入ってくる。
+// 後段の時刻比較は "HH:MM:SS" 前提なので、ここで文字列へ正規化する。
+function timeValue(row: unknown[], index: number): string {
+  const raw = row[index];
+
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    return secondsToTimeString((raw % 1) * 86400);
+  }
+  if (raw instanceof Date) {
+    return secondsToTimeString(
+      raw.getHours() * 3600 + raw.getMinutes() * 60 + raw.getSeconds()
+    );
+  }
+
+  const text = cellValue(row, index);
+  if (!text) return '';
+
+  const clockMatch = text.match(/^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$/);
+  if (clockMatch) {
+    return secondsToTimeString(
+      parseInt(clockMatch[1], 10) * 3600 +
+        parseInt(clockMatch[2], 10) * 60 +
+        parseInt(clockMatch[3] ?? '0', 10)
+    );
+  }
+
+  // CSV経由でシリアル値が文字列化されている場合
+  if (/^\d*\.\d+$/.test(text)) {
+    return secondsToTimeString((parseFloat(text) % 1) * 86400);
+  }
+
+  return text;
 }
 
 interface HeaderMatch {
@@ -32,7 +92,7 @@ interface HeaderMatch {
 
 // コメントピックアップシートはタイトル行の有無・列順が更新のたびに変わるため、
 // 位置決め打ちではなくヘッダー名から列を都度検出する。
-function findHeaderRow(rows: string[][], maxScanRows = 5): HeaderMatch | null {
+function findHeaderRow(rows: unknown[][], maxScanRows = 5): HeaderMatch | null {
   const scanLimit = Math.min(maxScanRows, rows.length);
 
   for (let i = 0; i < scanLimit; i++) {
@@ -64,7 +124,7 @@ export interface MapRowsResult {
   errors: string[];
 }
 
-export function mapRowsToInputQuestions(rows: string[][]): MapRowsResult {
+export function mapRowsToInputQuestions(rows: unknown[][]): MapRowsResult {
   const header = findHeaderRow(rows);
 
   if (!header) {
@@ -83,13 +143,13 @@ export function mapRowsToInputQuestions(rows: string[][]): MapRowsResult {
   for (const row of dataRows) {
     if (!row) continue;
 
-    const time = cellValue(row, columns.time);
+    const time = timeValue(row, columns.time);
     const question = cellValue(row, columns.question);
 
     if (!time || !question) continue;
 
     questions.push({
-      answered: cellValue(row, columns.answered),
+      answered: answeredValue(row, columns.answered),
       time,
       user: cellValue(row, columns.user),
       question,

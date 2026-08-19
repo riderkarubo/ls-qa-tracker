@@ -49,8 +49,8 @@ export default function Home() {
   };
 
   const handleProcess = async () => {
-    if (!inputFile || !qaTextFile) {
-      alert('両方のファイルを選択してください');
+    if (!inputFile) {
+      alert('コメントピックアップシートを選択してください');
       return;
     }
 
@@ -68,7 +68,10 @@ export default function Home() {
     try {
       const formData = new FormData();
       formData.append('inputFile', inputFile);
-      formData.append('qaTextFile', qaTextFile);
+      // QA抽出テキストは任意（質問数が少なくアーカイブ判定が不要な配信では省略できる）
+      if (qaTextFile) {
+        formData.append('qaTextFile', qaTextFile);
+      }
 
       const response = await fetch('/api/process-stream', {
         method: 'POST',
@@ -235,7 +238,7 @@ export default function Home() {
             selectedFile={inputFile}
           />
           <FileUpload
-            label="QA抽出テキスト"
+            label="QA抽出テキスト（任意・アーカイブ判定する場合のみ）"
             accept=".txt"
             category="secondary"
             onFileSelect={setQATextFile}
@@ -272,7 +275,7 @@ export default function Home() {
           <Button
             variant="primary"
             onClick={handleProcess}
-            disabled={!inputFile || !qaTextFile || isProcessing}
+            disabled={!inputFile || isProcessing}
           >
             {isProcessing ? '処理中...' : '処理を実行'}
           </Button>
